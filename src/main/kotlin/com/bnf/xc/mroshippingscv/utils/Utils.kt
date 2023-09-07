@@ -32,7 +32,7 @@ object Utils {
                     filterBook = bookInfo.filter { it.bookRank == RankType.NEWBIE }
                 }
 
-                else -> System.out.println("예외처리하기 : 회원이 존재하지않는 상태입니다. 이건 있을수가 없는데... 아마?")
+                //else -> System.out.println("예외처리하기 : 회원이 존재하지않는 상태입니다. 이건 있을수가 없는데... 아마?")
             }
         } else return Pair(filterBook, -1)
 

@@ -20,6 +20,7 @@ import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.lang.Exception
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -55,7 +56,7 @@ class LibraryCommandServiceImpl(
                 )
             )
         }
-        return "등록성공"
+        return "등록성공" // what are you doing dude? 팔굽혀펴기 200개
     }
 
     @Transactional
@@ -123,12 +124,12 @@ class LibraryCommandServiceImpl(
         val filterBookInfo = Utils.matchingRank(userInfo, bookInfo)
 
         when {
-            filterBookInfo.second == -1 -> return "에러 처리 해야함 : 대여 권한이 정지된 계정입니다."
+            filterBookInfo.second == -1 -> throw Exception() // ???????????????
             filterBookInfo.second != bookInfo.count() -> return "에러 처리 해야함 : 대여권한 없는 책 포함되있음."
             userInfo.userRentCount + bookInfo.count() > userInfo.userRank.rentCount -> return "에러처리 해야함 : 수량 오버"
         }
 
-        if (filterBookInfo.second != 0) {
+        if (filterBookInfo.second != 0) { // 코딩변태....
             libraryRentRepositories.saveBooks(filterBookInfo.first.map { data ->
                 RentHistory(
                     userIdFk = userInfo.userId,
@@ -136,30 +137,11 @@ class LibraryCommandServiceImpl(
                 )
             })
             libraryUserRepositories.updateUser(
-                User(
-                    userId = userInfo.userId,
-                    userPw = userInfo.userPw,
-                    userTel = userInfo.userTel,
-                    userName = userInfo.userName,
-                    userBirth = userInfo.userBirth,
-                    userPoint = userInfo.userPoint,
-                    userCreateDate = userInfo.userCreateDate,
-                    userQualification = userInfo.userQualification,
-                    userRank = userInfo.userRank,
-                    userRentCount = userInfo.userRentCount
-                ).rent(filterBookInfo.second)
+                    userInfo.rent(filterBookInfo.second)
             )
             libraryBookRepositories.saveBooks(filterBookInfo.first.map { data ->
-                Book(
-                    bookNo = data.bookNo,
-                    bookName = data.bookName,
-                    rentStatus = true,
-                    author = data.author,
-                    createDate = data.createDate,
-                    purchaseDate = data.purchaseDate,
-                    exist = data.exist,
-                    bookRank = data.bookRank
-                ).updateBook()
+                data.updateStatus (true)// ??
+                data.updateBook() // ??
             })
             libraryPointRepositories.insertPoint(
                 Point(
@@ -175,10 +157,11 @@ class LibraryCommandServiceImpl(
     // 책 반납 > 반납 성공 > 유저 책 수량 변경, 책 대여 상태 변경
     @Transactional
     override suspend fun returnBook(body: ReturnRequest): String {
+
+        // 리뷰 거부
         val bookInfo = libraryBookRepositories.findByBookIds(body.bookNos).asFlow().toList()
         val rentInfo = libraryRentRepositories.findByRentNos(body.bookNos)
-        val userInfo =
-            libraryUserRepositories.findByUsersInfo(rentInfo.sortedBy { it.userIdFk }.map { data -> data.userIdFk })
+        val userInfo = libraryUserRepositories.findByUsersInfo(rentInfo.sortedBy { it.userIdFk }.map { data -> data.userIdFk })
 
         when {
             rentInfo.find { data -> data.returnDate != null } != null -> return "에러 처리 해야함 : 대여가 안된 책이 있습니다."

@@ -12,7 +12,7 @@ data class Book(
     val bookNo: Long = 0,
     val bookName: String,
     // 대여 상태: 대여-> true, 미대여 -> false
-    val rentStatus: Boolean = false,
+    var rentStatus: Boolean = false,
     val author: String,
     // 책 출간일
     val createDate: LocalDate,
@@ -28,5 +28,9 @@ data class Book(
     fun updateBook(): Book {
         updateDate = LocalDateTime.now()
         return this
+    }
+
+    fun updateStatus(status: Boolean) {
+        this.rentStatus = status
     }
 }
