@@ -56,7 +56,7 @@ class LibraryCommandServiceImpl(
                 )
             )
         }
-        return "등록성공" // what are you doing dude? 팔굽혀펴기 200개
+        return "success"
     }
 
     @Transactional
@@ -76,7 +76,7 @@ class LibraryCommandServiceImpl(
                 ).updateBook()
             )
         }
-        return "수정성공"
+        return "success"
     }
 
     @Transactional
@@ -92,7 +92,7 @@ class LibraryCommandServiceImpl(
                 )
             )
         }
-        return "등록성공"
+        return "success"
     }
 
     @Transactional
@@ -114,7 +114,7 @@ class LibraryCommandServiceImpl(
                 ).updateUser()
             )
         }
-        return "수정성공"
+        return "success"
     }
 
     @Transactional
@@ -124,105 +124,74 @@ class LibraryCommandServiceImpl(
         val filterBookInfo = Utils.matchingRank(userInfo, bookInfo)
 
         when {
-            filterBookInfo.second == -1 -> throw Exception() // ???????????????
-            filterBookInfo.second != bookInfo.count() -> return "에러 처리 해야함 : 대여권한 없는 책 포함되있음."
-            userInfo.userRentCount + bookInfo.count() > userInfo.userRank.rentCount -> return "에러처리 해야함 : 수량 오버"
+            // 대여자격이 없는 사용자일 경우 filterBookInfo.second = -1, 자격이 있을 경우 filterBookInfo.second = 등급에 맞는 책 수량
+            filterBookInfo.second == -1 -> throw Exception("대여자격이 없는 회원입니다.")
+            // 입력받은 책 수량이랑 대여 가능 등급 필터링 된 책 수량 비교
+            filterBookInfo.second != bookInfo.count() -> throw Exception("대여 불가 등급 책 포함되어있습니다.")
+            // 사용자 현재 대여 책 수량 + 입력받은 책수량 > 유저등급에 따른 대여 가능 책수량
+            userInfo.userRentCount + bookInfo.count() > userInfo.userRank.rentCount -> throw Exception("수량 오버")
         }
 
-        if (filterBookInfo.second != 0) { // 코딩변태....
+        if (filterBookInfo.second != 0) {
             libraryRentRepositories.saveBooks(filterBookInfo.first.map { data ->
                 RentHistory(
                     userIdFk = userInfo.userId,
                     bookNoFk = data.bookNo
                 )
             })
+
             libraryUserRepositories.updateUser(
-                    userInfo.rent(filterBookInfo.second)
+                userInfo.rent(filterBookInfo.second)
             )
+
             libraryBookRepositories.saveBooks(filterBookInfo.first.map { data ->
-                data.updateStatus (true)// ??
-                data.updateBook() // ??
+                data.updateStatus(true)
             })
+
             libraryPointRepositories.insertPoint(
                 Point(
                     userIdFk = userInfo.userId,
+                    // 변동 포인트
                     variablePoint = (filterBookInfo.second * 200).toLong(),
+                    // 누적 포인트
                     cumulativePoint = userInfo.userPoint + (filterBookInfo.second * 200)
                 )
             )
         }
-        return "대여성공"
+        return "success"
     }
 
     // 책 반납 > 반납 성공 > 유저 책 수량 변경, 책 대여 상태 변경
     @Transactional
     override suspend fun returnBook(body: ReturnRequest): String {
-
-        // 리뷰 거부
+        // 입력 받은 bookNo에 대한 책 정보들
         val bookInfo = libraryBookRepositories.findByBookIds(body.bookNos).asFlow().toList()
+        // 입력 받은 bookNo에 대한 대여 기록
         val rentInfo = libraryRentRepositories.findByRentNos(body.bookNos)
-        val userInfo = libraryUserRepositories.findByUsersInfo(rentInfo.sortedBy { it.userIdFk }.map { data -> data.userIdFk })
+        // 위에서 조회한 rentInfo에 포함된 유저들 정보 모두 조회
+        val userInfo =
+            libraryUserRepositories.findByUsersInfo(rentInfo.sortedBy { it.userIdFk }.map { data -> data.userIdFk })
 
         when {
-            rentInfo.find { data -> data.returnDate != null } != null -> return "에러 처리 해야함 : 대여가 안된 책이 있습니다."
+            rentInfo.find { data -> data.returnDate != null } != null -> throw Exception("대여가 안된 책이 있습니다.")
         }
 
+        // 대여 기록에 반납일자 입력
         libraryRentRepositories.returnBooks(rentInfo.map { data ->
-            RentHistory(
-                rentNo = data.rentNo,
-                userIdFk = data.userIdFk,
-                bookNoFk = data.bookNoFk,
-                rentDate = data.rentDate,
-                returnDate = LocalDate.now(),
-                expectReturnDate = data.expectReturnDate
-            )
+            data.returnBook()
         })
 
+        // 책 대여 상태 false, update 일자 수정
         libraryBookRepositories.saveBooks(bookInfo.map { data ->
-            Book(
-                bookNo = data.bookNo,
-                bookName = data.bookName,
-                author = data.author,
-                createDate = data.createDate,
-                purchaseDate = data.purchaseDate,
-                exist = data.exist,
-                bookRank = data.bookRank
-            ).updateBook()
+            data.updateStatus(false)
         })
 
-        userInfo.map { data ->
-            libraryUserRepositories.updateUser(
-                User(
-                    userId = data.userId,
-                    userPw = data.userPw,
-                    userTel = data.userTel,
-                    userName = data.userName,
-                    userBirth = data.userBirth,
-                    userPoint = data.userPoint,
-                    userCreateDate = data.userCreateDate,
-                    userQualification = data.userQualification,
-                    userRank = data.userRank,
-                    userRentCount = data.userRentCount
-                ).returnCount(rentInfo.count { it.userIdFk == data.userId })
-            )
-        }
-
+        // 반납 수량 만큼 대여 수량 감소
         libraryUserRepositories.saveUsers(userInfo.map { data ->
-            User(
-                userId = data.userId,
-                userPw = data.userPw,
-                userTel = data.userTel,
-                userName = data.userName,
-                userBirth = data.userBirth,
-                userPoint = data.userPoint,
-                userCreateDate = data.userCreateDate,
-                userQualification = data.userQualification,
-                userRank = data.userRank,
-                userRentCount = data.userRentCount
-            ).returnCount(rentInfo.count { it.userIdFk == data.userId })
+            data.returnCount(rentInfo.count { it.userIdFk == data.userId })
         })
 
-        return "반납성공"
+        return "success"
     }
 
     @Transactional
@@ -232,26 +201,15 @@ class LibraryCommandServiceImpl(
 
         libraryUserRepositories.saveUsers(
             userInfo.map { user ->
-                User(
-                    userId = user.userId,
-                    userPw = user.userPw,
-                    userTel = user.userTel,
-                    userName = user.userName,
-                    userBirth = user.userBirth,
-                    userPoint = user.userPoint,
-                    userCreateDate = user.userCreateDate,
-                    userQualification = user.userQualification,
-                    userRank = user.userRank,
-                    userRentCount = user.userRentCount
-                ).scheduledMinusPoint(scheduledRentHistory.count { it.userIdFk == user.userId })
+                user.scheduledMinusPoint(scheduledRentHistory.count { it.userIdFk == user.userId })
             }
         )
         libraryPointRepositories.savePoints(
             userInfo.map { user ->
                 Point(
                     userIdFk = user.userId,
-                    variablePoint = -(scheduledRentHistory.count { it.userIdFk == user.userId } * 200).toLong(),
-                    cumulativePoint = user.userPoint - (scheduledRentHistory.count { it.userIdFk == user.userId } * 200)
+                    variablePoint = -(scheduledRentHistory.count { it.userIdFk == user.userId } * 300).toLong(),
+                    cumulativePoint = user.userPoint - (scheduledRentHistory.count { it.userIdFk == user.userId } * 300)
                 )
             }
         )

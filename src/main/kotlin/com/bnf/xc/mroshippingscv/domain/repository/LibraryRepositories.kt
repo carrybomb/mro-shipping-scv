@@ -1,11 +1,13 @@
 package com.bnf.xc.mroshippingscv.domain.repository
 
+import com.bnf.xc.mroshippingscv.application.dto.PageableTotalDTO
 import com.bnf.xc.mroshippingscv.application.usecase.condition.BookQueryCondition
 import com.bnf.xc.mroshippingscv.application.usecase.condition.UserQueryCondition
 import com.bnf.xc.mroshippingscv.domain.model.Book
 import com.bnf.xc.mroshippingscv.domain.model.Point
 import com.bnf.xc.mroshippingscv.domain.model.RentHistory
 import com.bnf.xc.mroshippingscv.domain.model.User
+import org.springframework.data.domain.PageImpl
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
@@ -39,4 +41,14 @@ interface LibraryRentRepositories {
     suspend fun findByRentNos(bookNos: List<Long>): List<RentHistory>
     suspend fun findAll(): List<RentHistory>
     suspend fun scheduledRentHistory(): List<RentHistory>
+}
+
+interface LibraryUserRepositoriesForJooq {
+    suspend fun getHistoriesPageable(condition: UserQueryCondition): PageableTotalDTO<List<User>>
+    suspend fun getHistoriesCount(condition: UserQueryCondition): Int
+}
+
+interface LibraryBookRepositoriesForJooq{
+    suspend fun getHistoriesPageable(condition: BookQueryCondition): PageableTotalDTO<List<Book>>
+    suspend fun getHistoriesCount(condition: BookQueryCondition): Int
 }

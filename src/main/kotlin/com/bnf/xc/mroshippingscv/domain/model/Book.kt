@@ -30,7 +30,9 @@ data class Book(
         return this
     }
 
-    fun updateStatus(status: Boolean) {
-        this.rentStatus = status
+    fun updateStatus(status: Boolean):Book {
+        rentStatus = status
+        updateDate = LocalDateTime.now()
+        return this
     }
 }

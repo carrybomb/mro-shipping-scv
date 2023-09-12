@@ -8,7 +8,7 @@ import java.time.LocalDateTime
 data class Point(
     @Id
     val pointNo: Long? = null,
-    val userIdFk: String, // 죽습니다....
+    val userIdFk: String,
     val variablePoint: Long,
     val cumulativePoint: Long,
     var changeDate: LocalDateTime = LocalDateTime.now()

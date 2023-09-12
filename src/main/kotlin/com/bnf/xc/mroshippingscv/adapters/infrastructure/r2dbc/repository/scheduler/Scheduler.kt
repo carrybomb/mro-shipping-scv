@@ -15,7 +15,7 @@ class Scheduler(
         try {
             runBlocking { libraryCommandService.midnightScheduler() }
         } catch (e: Exception) {
-            System.out.println("에러 처리 해야함 :" + e.message)
+            throw Exception(e.message)
         }
     }
 }

@@ -32,7 +32,7 @@ data class User(
         userPoint += count * 200
         if (userRank != RankType.MASTER) {
             when {
-                userPoint in 0..2000 -> userRank = RankType.NEWBIE
+                userPoint in -999..2000 -> userRank = RankType.NEWBIE
                 userPoint in 2000..4999 -> userRank = RankType.SPROUT
                 userPoint > 5000 -> userRank = RankType.TREE
             }
@@ -48,10 +48,10 @@ data class User(
     }
 
     fun scheduledMinusPoint(count: Int): User {
-        userPoint -= count * 200
+        userPoint -= count * 300
         if (userRank != RankType.MASTER) {
             when {
-                userPoint < 0 -> userQualification = false
+                userPoint <= -1000 -> userQualification = false
                 userPoint < 2000 -> userRank = RankType.NEWBIE
                 userPoint in 2000..4999 -> userRank = RankType.SPROUT
                 userPoint > 5000 -> userRank = RankType.TREE
